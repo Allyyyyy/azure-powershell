@@ -14,7 +14,7 @@ param (
     [string]$RepoRoot,
     [string]$PowerShellPlatform,
     [string]$TestFramework,
-    [switch]$DisableTestCoverage,
+    [switch]$NotCI,
     [string]$Configuration = 'Debug'
 )
 
@@ -55,26 +55,27 @@ $ErrorActionPreference = $preference
 Set-Location $currentPath
 Write-Host -ForegroundColor DarkGreen "-------------------- End testing AutoGen modules with PowerShell Core ... --------------------`n`n`n`n`n"
 
-if (-Not $DisableTestCoverage) {
+if ($Trigger -NotIn @('Manual', 'Schedule')) {
     # Analyze test coverage
     Write-Host -ForegroundColor Green "-------------------- Start analyzing test coverage ... --------------------"
     $validateTestCoverageScriptPath = Join-Path $RepoRoot 'tools' 'TestFx' 'Coverage' 'ValidateTestCoverage.ps1'
     & $validateTestCoverageScriptPath
     Write-Host -ForegroundColor DarkGreen "-------------------- End analyzing test coverage ... --------------------`n`n`n`n`n"
+
+    # Check test status
+    Write-Host -ForegroundColor Green "-------------------- Start checking test status ... --------------------"
+    $currentPath = $PWD
+    $pipelineResultPath = Join-Path $RepoRoot "artifacts" "PipelineResult"
+    Set-Location $pipelineResultPath
+
+    $PipelineResult = Get-Content PipelineResult.json | ConvertFrom-Json
+    $FailedModuleList = $PipelineResult.test.Details[0].Modules | Where-Object { $_.Status -eq "Failed" } | ForEach-Object { $_.Module }
+    if ($FailedModuleList.Length -ne 0)
+    {
+        throw "test fails in module: $FailedModuleList"
+    }
+
+    Set-Location $currentPath
 }
 
-# Check test status
-Write-Host -ForegroundColor Green "-------------------- Start checking test status ... --------------------"
-$currentPath = $PWD
-$pipelineResultPath = Join-Path $RepoRoot "artifacts" "PipelineResult"
-Set-Location $pipelineResultPath
-
-$PipelineResult = Get-Content PipelineResult.json | ConvertFrom-Json
-$FailedModuleList = $PipelineResult.test.Details[0].Modules | Where-Object { $_.Status -eq "Failed" } | ForEach-Object { $_.Module }
-if ($FailedModuleList.Length -ne 0)
-{
-    throw "test fails in module: $FailedModuleList"
-}
-
-Set-Location $currentPath
 Write-Host -ForegroundColor DarkGreen "-------------------- End checking test status ... --------------------`n`n`n`n`n"
