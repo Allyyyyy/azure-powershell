@@ -14,7 +14,7 @@ param (
     [string]$RepoRoot,
     [string]$PowerShellPlatform,
     [string]$TestFramework,
-    [switch]$NotCI,
+    [switch]$Trigger,
     [string]$Configuration = 'Debug'
 )
 
